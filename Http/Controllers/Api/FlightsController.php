@@ -48,7 +48,14 @@ class FlightsController extends Controller
     {
         $user = Auth::user();
         $bids = $this->bidService->findBidsForUser($user);
-        $bids->load('flight', 'flight.subfleets', 'flight.subfleets.aircraft');
+        $bids->load(
+            'flight',
+            'flight.airline',
+            'flight.simbrief',
+            'flight.simbrief.aircraft',
+            'flight.subfleets',
+            'flight.subfleets.aircraft'
+        );
         $output = [];
 
         foreach ($bids as $bid) {

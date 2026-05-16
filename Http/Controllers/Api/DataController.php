@@ -7,6 +7,7 @@ use App\Models\Aircraft;
 use App\Models\Airport;
 use App\Models\Enums\AircraftState;
 use App\Models\Enums\AircraftStatus;
+use App\Models\Enums\FareType;
 use App\Models\News;
 use Illuminate\Http\Request;
 
@@ -18,22 +19,40 @@ class DataController extends Controller
 {
     /**
      * GET /data/aircraft
-     * Stratos expects: id, code, name, service_ceiling, registration, maximum_passengers, maximum_cargo, minimum_rank
+     * Stratos expects: id, code, name, registration, maximum_passengers, maximum_cargo, minimum_rank.
+     *
+     * maximum_passengers is summed from the subfleet's passenger fares.
+     * maximum_cargo comes from the subfleet's cargo_capacity column.
+     * minimum_rank is the lowest-hours rank the subfleet is gated to,
+     * or '' if the subfleet has no rank restriction.
      */
     public function aircraft(Request $request)
     {
-        $aircraft = Aircraft::orderBy('name')->get();
+        $aircraft = Aircraft::with(['subfleet.fares', 'subfleet.ranks'])
+            ->orderBy('name')
+            ->get();
+
         $output = [];
         foreach ($aircraft as $item) {
+            $subfleet = $item->subfleet;
+            $fares = $subfleet ? $subfleet->fares : collect();
+
+            $maxPax = (int) $fares->where('type', FareType::PASSENGER)->sum('capacity');
+            $maxCargo = (int) ($subfleet->cargo_capacity ?? 0);
+
+            $minRank = '';
+            if ($subfleet && $subfleet->ranks->isNotEmpty()) {
+                $minRank = (string) $subfleet->ranks->sortBy('hours')->first()->name;
+            }
+
             $output[] = [
                 "id"                 => $item->id,
                 "code"               => $item->icao,
                 "name"               => $item->name,
-                "service_ceiling"    => 41000,
                 "registration"       => $item->registration,
-                "maximum_passengers" => 300,
-                "maximum_cargo"      => 1000,
-                "minimum_rank"       => "",
+                "maximum_passengers" => $maxPax,
+                "maximum_cargo"      => $maxCargo,
+                "minimum_rank"       => $minRank,
             ];
         }
         return response()->json($output);
