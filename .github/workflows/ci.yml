@@ -1,0 +1,33 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # phpVMS 7 runs on Laravel 10 with composer.json php >=8.1. PHP 8.1
+        # itself EOL'd in Nov 2025 and the modern Pest/paratest ecosystem
+        # requires PHP 8.2+ even on Laravel 10, so 8.2 is the practical
+        # floor for testing. Matrix covers the currently-supported range:
+        # 8.2 (oldest non-EOL), 8.3 (phpVMS's own CI ceiling), 8.4 (latest).
+        php: ['8.2', '8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Cache composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
+      - name: Install
+        run: composer install --no-interaction --prefer-dist
+      - name: Run Pest
+        run: ./vendor/bin/pest

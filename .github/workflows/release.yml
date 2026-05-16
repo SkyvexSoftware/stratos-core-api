@@ -1,0 +1,28 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Install (no dev)
+        run: composer install --no-interaction --prefer-dist --no-dev
+      - name: Build module zip
+        run: |
+          zip -r module.zip . \
+            -x ".git/*" ".github/*" "tests/*" "*.md" "phpunit.xml" \
+            -x "composer.lock"
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: module.zip
+          generate_release_notes: true
