@@ -1,0 +1,37 @@
+{
+  "name": "skyvexsoftware/stratos-core-api",
+  "description": "Stratos Core API — phpVMS 7 module",
+  "type": "phpvms-module",
+  "license": "MIT",
+  "authors": [
+    { "name": "Skyvex Software Pty Ltd", "homepage": "https://skyvexsoftware.com" }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Modules\\StratosCore\\": ""
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Modules\\StratosCore\\Tests\\": "tests/",
+      "App\\": "tests/stubs/App/"
+    }
+  },
+  "require": {
+    "php": "^8.2"
+  },
+  "require-dev": {
+    "pestphp/pest": "^2.0",
+    "orchestra/testbench": "^8.0"
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    },
+    "platform": {
+      "php": "8.2.0"
+    }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
