@@ -127,9 +127,7 @@ class FlightsController extends Controller
         $input = $request->all();
         $flightLog = $input['flight_log'] ?? [];
         $flightData = $input['flight_data'] ?? [];
-        // The shell historically sends 'tracking_id' here and 'uuid' on
-        // /flights/update — accept either name (synonyms — both are the
-        // PIREP id we hand back from /flights/start).
+        // Shell sends either 'tracking_id' or 'uuid' — both are the PIREP id from /flights/start.
         $pirepId = $input['uuid'] ?? $input['tracking_id'] ?? null;
         if (empty($pirepId)) {
             return response()->json(['error' => 'tracking_id is required'], 400);
@@ -139,24 +137,8 @@ class FlightsController extends Controller
             return response()->json(['error' => 'PIREP not found'], 404);
         }
 
-        $pirep->status = PirepStatus::ARRIVED;
-        $pirep->state = PirepState::PENDING;
-        $pirep->source = PirepSource::ACARS;
-        $pirep->source_name = "Stratos ACARS";
-        $pirep->landing_rate = $input['landing_rate'] ?? 0;
-        $pirep->fuel_used = $input['fuel_used'] ?? 0;
-        $flightTime = $input['flight_time'] ?? 0;
-        $pirep->flight_time = $flightTime * 60;
-        // Only overwrite route if the ACARS client actually sends one;
-        // otherwise keep the route that was set during prefile from the flight schedule.
-        if (isset($input['route']) && !empty($input['route'])) {
-            $pirep->route = is_array($input['route']) ? join(" ", $input['route']) : $input['route'];
-        }
-        $pirep->submitted_at = Carbon::now('UTC');
-
-        // Process log entries (array of {timestamp, event} objects).
+        // Save log lines as Acars LOG rows. Format is client-customisable, so we don't parse them.
         $logEntries = !empty($flightData) ? $flightData : $flightLog;
-
         foreach ($logEntries as $data) {
             $log_item = new Acars();
             $log_item->type = AcarsType::LOG;
@@ -164,68 +146,62 @@ class FlightsController extends Controller
             $ts = $data['timestamp'] ?? null;
             $log_item->created_at = $ts ? Carbon::parse($ts) : Carbon::now('UTC');
             $pirep->acars_logs()->save($log_item);
+        }
 
-            $message = (string) ($data['event'] ?? '');
+        // Fuel/weight values are sent in lbs (phpVMS internal unit). Distance is recomputed
+        // from FLIGHT_PATH rows written during /flights/update.
+        $attrs = [
+            'source'       => PirepSource::ACARS,
+            'source_name'  => 'Stratos ACARS',
+            'landing_rate' => $input['landing_rate'] ?? 0,
+            'fuel_used'    => $input['fuel_used'] ?? 0,
+            'flight_time'  => (int) (((float) ($input['flight_time'] ?? 0)) * 60),
+            'distance'     => PirepDistanceCalculation::calculatePirepDistance($pirep),
+        ];
 
-            if (str_contains($message, "Pushing back with")) {
-                if (preg_match('/Pushing back with(?:\s+a)?\s+zero fuel weight of\s+([0-9,.]+)\s*([A-Za-z]+)\s+and\s+([0-9,.]+)\s*([A-Za-z]+)\s+of fuel/i', $message, $matches)) {
-                    $zfw_amount = (float) str_replace(',', '', $matches[1]);
-                    $zfw_units = strtolower($matches[2]);
-                    $fuel_amount = (float) str_replace(',', '', $matches[3]);
-                    $fuel_units = strtolower($matches[4]);
-
-                    if (in_array($zfw_units, ['kg', 'kgs'], true)) {
-                        $zfw_amount = $zfw_amount * 2.20462;
-                    }
-                    if (in_array($fuel_units, ['kg', 'kgs'], true)) {
-                        $fuel_amount = $fuel_amount * 2.20462;
-                    }
-
-                    $pirep->zfw = $zfw_amount;
-                    $pirep->block_fuel = $fuel_amount;
-                    continue;
-                }
-
-                if (preg_match('/Pushing back with\s+([0-9,.]+)\s*([A-Za-z]+)\s+of fuel/i', $message, $matches)) {
-                    $fuel_amount = (float) str_replace(',', '', $matches[1]);
-                    $fuel_units = strtolower($matches[2]);
-                    if (in_array($fuel_units, ['kg', 'kgs'], true)) {
-                        $fuel_amount = $fuel_amount * 2.20462;
-                    }
-                    $pirep->block_fuel = $fuel_amount;
-                }
+        foreach (['zfw', 'block_fuel', 'block_time', 'level'] as $optional) {
+            if (isset($input[$optional]) && is_numeric($input[$optional])) {
+                $attrs[$optional] = (float) $input[$optional];
             }
         }
 
-        $this->pirepService->updateCustomFields($pirep->id, [
+        // Preserve the prefile route if the client doesn't send one.
+        if (isset($input['route']) && !empty($input['route'])) {
+            $attrs['route'] = is_array($input['route']) ? join(' ', $input['route']) : $input['route'];
+        }
+
+        $fields = [
             [
-                'name' => 'Filed by',
-                'value' => 'Stratos ACARS',
+                'name'   => 'Filed by',
+                'value'  => 'Stratos ACARS',
                 'source' => PirepFieldSource::ACARS,
             ],
-        ]);
+        ];
+
+        try {
+            $pirep = $this->pirepService->file($pirep, $attrs, $fields);
+        } catch (\Throwable $e) {
+            Log::error('Stratos /flights/complete file failed: '.$e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+
+        // file() doesn't handle comments — write them separately.
         $comments = $input['comments'] ?? null;
         if (!empty($comments) && is_array($comments)) {
-            // Stratos sends comments as a dedicated array of strings
             foreach ($comments as $comment) {
                 $commentText = is_array($comment) ? ($comment['event'] ?? $comment['text'] ?? $comment['comment'] ?? json_encode($comment)) : (string) $comment;
                 if (!empty($commentText)) {
                     $pirep->comments()->create([
                         'user_id' => Auth::user()->id,
-                        'comment' => $commentText
+                        'comment' => $commentText,
                     ]);
                 }
             }
         }
-        // Distance is recalculated from phpVMS's native acars FLIGHT_PATH
-        // rows (written by /flights/update during the flight). No need to
-        // store a separate copy of the client-side history blob.
-        $pirep->distance = PirepDistanceCalculation::calculatePirepDistance($pirep);
-        $pirep->save();
 
+        // submit() fires PirepFiled, handles diversion, and applies rank auto-approve.
         $this->pirepService->submit($pirep);
 
-        // Reload relationships so the response includes useful metadata.
         $pirep->load(['airline', 'aircraft', 'dpt_airport', 'arr_airport']);
 
         return response()->json([
