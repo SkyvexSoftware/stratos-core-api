@@ -56,28 +56,42 @@ class PilotController extends Controller
      */
     public function login(Request $request)
     {
-        $username = $request->input('username', $request->query('username'));
-        $password = $request->input('password');
+        $username = trim((string) $request->input('username', ''));
+        $password = (string) $request->input('password', '');
 
-        if (str_contains($username, '@')) {
-            $user = User::where('email', $username)->with('airline', 'rank')->first();
-        } else {
-            $user = User::where('pilot_id', $username)->with('airline', 'rank')->first();
-        }
+        $user = $this->resolveLoginUser($username);
 
-        if (is_null($user)) {
+        if ($user === null) {
             return response()->json(['success' => false, 'error' => 'The username or password is incorrect'], 401);
         }
 
-        if (password_verify($password, $user['password'])) {
-            return response()->json($this->retrieveUserInformation($user));
-        }
-
-        if ($password == $user['api_key']) {
+        if (password_verify($password, $user['password']) || hash_equals((string) $user['api_key'], $password)) {
             return response()->json($this->retrieveUserInformation($user));
         }
 
         return response()->json(['success' => false, 'error' => 'The username or password is incorrect'], 401);
+    }
+
+    /**
+     * Resolve the pilot for a login attempt. Stratos sends the displayed pilot ID
+     * (e.g. "QFA0001"), but pilot_id is an integer column — strip the airline
+     * prefix before querying.
+     */
+    private function resolveLoginUser(string $username): ?User
+    {
+        if ($username === '') {
+            return null;
+        }
+
+        if (str_contains($username, '@')) {
+            return User::with('airline', 'rank')->where('email', $username)->first();
+        }
+
+        $pilotId = (int) preg_replace('/\D/', '', $username);
+
+        return $pilotId > 0
+            ? User::with('airline', 'rank')->where('pilot_id', $pilotId)->first()
+            : null;
     }
 
     /**
