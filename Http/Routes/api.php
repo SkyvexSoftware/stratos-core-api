@@ -2,7 +2,6 @@
 use \Modules\StratosCore\Http\Controllers\Api\DataController;
 use \Modules\StratosCore\Http\Controllers\Api\FlightsController;
 use \Modules\StratosCore\Http\Controllers\Api\PilotController;
-use \Modules\StratosCore\Http\Controllers\Api\PirepController;
 use \Modules\StratosCore\Http\Middleware\StratosAuth;
 use \Modules\StratosCore\Http\Middleware\StratosHeaders;
 
@@ -20,14 +19,13 @@ Route::group(['middleware' => [StratosHeaders::class]], function () {
         $moduleJson = \Illuminate\Support\Facades\File::get(dirname(__DIR__, 2) . '/module.json');
         $moduleData = json_decode($moduleJson, true);
         $version = $moduleData['version'] ?? 'unknown';
-        return response()->json(["api_version" => $version, "handler" => "Stratos"]);
+        return response()->json([
+            "api_version" => $version,
+            "handler" => "Stratos",
+        ]);
     });
 
     Route::match(['post', 'options'], '/pilot/login', [PilotController::class, 'login']);
-
-    Route::match(['get', 'options'], '/pireps/latest', [PirepController::class, 'latest']);
-    Route::match(['get', 'options'], '/pireps/search', [PirepController::class, 'search']);
-    Route::match(['get', 'options'], '/pireps/details', [PirepController::class, 'details']);
 
     // Authenticated endpoints
     Route::group(['middleware' => [StratosAuth::class]], function () {

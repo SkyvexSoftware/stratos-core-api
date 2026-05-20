@@ -2,6 +2,8 @@
 
 A phpVMS 7 module that adds the API surface the [Stratos desktop client](https://skyvexsoftware.com) needs — pilot identity, reference data, and flight ops. Required by every Stratos integration; everything else (logbook, screenshots, future plugins) builds on top.
 
+📖 **API reference:** [docs.skyvexsoftware.com/api-reference/introduction](https://docs.skyvexsoftware.com/api-reference/introduction) — full OpenAPI spec for every endpoint this module exposes. Useful when forking, when implementing the same contract in a non-phpVMS stack, or when debugging client behaviour.
+
 ## Install
 
 You'll need a working phpVMS 7 install.
