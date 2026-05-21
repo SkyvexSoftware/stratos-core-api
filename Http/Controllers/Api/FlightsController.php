@@ -476,37 +476,35 @@ class FlightsController extends Controller
             $bag_weight = setting('simbrief.noncharter_baggage_weight', 35);
         }
 
-        $lfactor = $flight->load_factor ?? setting('flights.default_load_factor');
-        $lfactorv = $flight->load_factor_variance ?? setting('flights.load_factor_variance');
+        // Use ?: rather than ?? so a stored 0 (which the Dynamic Fares add-on
+        // writes to flights to disable phpVMS's static fare math) falls through
+        // to the VA-configured system default instead of skewing the roll.
+        $lfactor = $flight->load_factor ?: setting('flights.default_load_factor');
+        $lfactorv = $flight->load_factor_variance ?: setting('flights.load_factor_variance');
         $loadmin = max($lfactor - $lfactorv, 0);
         $loadmax = min($lfactor + $lfactorv, 100);
-        if ($loadmax === 0) {
-            $loadmax = 100;
-        }
 
         if (setting('flights.use_cargo_load_factor ', false)) {
-            $cgolfactor = $flight->load_factor ?? setting('flights.default_cargo_load_factor');
-            $cgolfactorv = $flight->load_factor_variance ?? setting('flights.cargo_load_factor_variance');
+            $cgolfactor = $flight->load_factor ?: setting('flights.default_cargo_load_factor');
+            $cgolfactorv = $flight->load_factor_variance ?: setting('flights.cargo_load_factor_variance');
             $cgoloadmin = max($cgolfactor - $cgolfactorv, 0);
             $cgoloadmax = min($cgolfactor + $cgolfactorv, 100);
-            if ($cgoloadmax === 0) {
-                $cgoloadmax = 100;
-            }
         } else {
             $cgoloadmin = $loadmin;
             $cgoloadmax = $loadmax;
         }
 
-        $pax_load_sheet = [];
         $tpaxfig = 0;
         $fares = [];
         foreach ($all_fares as $fare) {
             if ($fare->type !== FareType::PASSENGER || empty($fare->capacity)) {
                 continue;
             }
+            $count = (int) floor(($fare->capacity * rand($loadmin, $loadmax)) / 100);
+            $tpaxfig += $count;
             $fares[] = new PirepFare([
                 'fare_id' => $fare->id,
-                'count' => floor(($fare->capacity * rand($loadmin, $loadmax)) / 100)
+                'count' => $count,
             ]);
         }
 
