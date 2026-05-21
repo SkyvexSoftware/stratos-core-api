@@ -3,6 +3,7 @@
 namespace Modules\StratosCore\Http\Controllers\Api;
 
 use App\Contracts\Controller;
+use App\Models\Rank;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -38,8 +39,8 @@ class PilotController extends Controller
             'last_name' => $last,
             'email' => $user['email'],
             'rank' => $user['rank']['name'],
-            'rank_image' => null,
-            'rank_level' => 0,
+            'rank_image' => $user->rank?->image_url,
+            'rank_level' => $this->resolveRankLevel($user->rank),
             'avatar' => $user->resolveAvatarUrl(),
         ];
 
@@ -48,6 +49,19 @@ class PilotController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * 0-based rank tier — count of ranks below this one on the hours ladder.
+     * Matches phpVMS's auto-promote ordering (Rank::orderBy('hours', 'asc')).
+     */
+    private function resolveRankLevel(?Rank $rank): int
+    {
+        if ($rank === null) {
+            return 0;
+        }
+
+        return Rank::where('hours', '<', $rank->hours)->count();
     }
 
     /**
@@ -111,7 +125,7 @@ class PilotController extends Controller
      */
     public function statistics(Request $request)
     {
-        $user = User::where('id', Auth::user()->id)->with('pireps')->first();
+        $user = User::where('id', Auth::user()->id)->with(['pireps', 'rank'])->first();
         return response()->json([
             'hours_flown' => round($user->flight_time / 60, 2),
             'flights_flown' => (string) $user->pireps->count(),
@@ -122,7 +136,7 @@ class PilotController extends Controller
             'location' => $user->curr_airport_id ?? '',
             'ff_level' => 0,
             'ff_status' => 0,
-            'rank_image' => null,
+            'rank_image' => $user->rank?->image_url,
         ]);
     }
 }
