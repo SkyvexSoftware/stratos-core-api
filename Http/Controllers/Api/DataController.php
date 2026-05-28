@@ -78,17 +78,18 @@ class DataController extends Controller
 
     /**
      * GET /data/announcements
-     * Stratos expects an array of announcements with id, title, subtitle, link, image, publish_date
      */
     public function announcements(Request $request)
     {
         $news = News::latest()->take(10)->get();
         $output = [];
         foreach ($news as $item) {
+            $body = (string) $item->body;
             $output[] = [
                 'id'           => (string) $item->id,
                 'title'        => $item->subject,
-                'subtitle'     => strip_tags(substr($item->body, 0, 200)),
+                'subtitle'     => mb_substr(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8'), 0, 200),
+                'body'         => $body,
                 'link'         => null,
                 'image'        => null,
                 'publish_date' => $item->created_at->toDateString(),
