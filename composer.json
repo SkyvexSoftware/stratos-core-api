@@ -25,6 +25,10 @@
     "orchestra/testbench": "^8.0",
     "laravel/pint": "^1.29"
   },
+  "scripts": {
+    "format": "pint",
+    "format:test": "pint --test"
+  },
   "config": {
     "allow-plugins": {
       "pestphp/pest-plugin": true

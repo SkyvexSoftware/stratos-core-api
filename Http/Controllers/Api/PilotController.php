@@ -7,11 +7,9 @@ use App\Models\Rank;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 
 /**
  * class PilotController
- * @package Modules\StratosCore\Http\Controllers\Api
  */
 class PilotController extends Controller
 {
@@ -26,7 +24,7 @@ class PilotController extends Controller
         $name = explode(' ', $user['name']);
         if (count($name) <= 1) {
             $first = $name[0];
-            $last = "";
+            $last = '';
         } else {
             $first = $name[0];
             $last = $name[1];
@@ -34,7 +32,7 @@ class PilotController extends Controller
 
         $data = [
             'db_id' => $user['id'],
-            'pilot_id' => $user['airline']['icao'] . str_pad($user['pilot_id'], $pilotIDSetting, "0", STR_PAD_LEFT),
+            'pilot_id' => $user['airline']['icao'].str_pad($user['pilot_id'], $pilotIDSetting, '0', STR_PAD_LEFT),
             'first_name' => $first,
             'last_name' => $last,
             'email' => $user['email'],
@@ -116,6 +114,7 @@ class PilotController extends Controller
     {
         $user = Auth::user();
         $user->load('airline', 'rank');
+
         return response()->json($this->retrieveUserInformation($user, false));
     }
 
@@ -126,6 +125,7 @@ class PilotController extends Controller
     public function statistics(Request $request)
     {
         $user = User::where('id', Auth::user()->id)->with(['pireps', 'rank'])->first();
+
         return response()->json([
             'hours_flown' => round($user->flight_time / 60, 2),
             'flights_flown' => (string) $user->pireps->count(),
@@ -140,4 +140,3 @@ class PilotController extends Controller
         ]);
     }
 }
-
