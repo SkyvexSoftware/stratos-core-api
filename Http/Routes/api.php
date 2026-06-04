@@ -43,11 +43,13 @@ Route::group(['middleware' => [StratosHeaders::class]], function () {
         // Flights
         Route::group(['prefix' => '/flights', 'controller' => FlightsController::class], function () {
             Route::match(['get', 'options'], '/bookings', 'bookings');
+            Route::match(['get', 'options'], '/bookings/{bid}/aircraft', 'eligibleAircraft');
             Route::match(['post', 'options'], '/complete', 'complete');
             Route::match(['post', 'options'], '/cancel', 'cancel');
             Route::match(['post', 'options'], '/start', 'start');
             Route::match(['get', 'options'], '/search', 'search');
             Route::match(['post', 'options'], '/unbook', 'unbook');
+            Route::match(['post', 'options'], '/change-aircraft', 'changeAircraft');
             Route::match(['post', 'options'], '/update', 'update');
         });
     });

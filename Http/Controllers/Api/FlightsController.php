@@ -28,6 +28,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Modules\StratosCore\Actions\EligibleAircraftList;
 use Modules\StratosCore\Actions\PirepDistanceCalculation;
 
 /**
@@ -59,47 +60,81 @@ class FlightsController extends Controller
         $output = [];
 
         foreach ($bids as $bid) {
-            $aircraft = null;
-            if ($bid->flight->simbrief) {
-                $aircraft = $bid->flight->simbrief->aircraft->id;
-            } elseif ($bid->aircraft_id !== null) {
-                $aircraft = $bid->aircraft_id;
-            } else {
-                // Stratos expects a single integer aircraft ID; pick the first available
-                foreach ($bid->flight->subfleets->sortBy('name') as $subfleet) {
-                    foreach ($subfleet->aircraft->sortBy('registration') as $acf) {
-                        if ($aircraft === null) {
-                            $aircraft = $acf['id'];
-                        }
-                    }
-                }
-            }
-            $ft_converted = floatval(number_format($bid->flight->flight_time / 60, 2));
-
             if (setting('pilots.only_flights_from_current') && $bid->flight->dpt_airport_id !== $user->curr_airport_id) {
                 continue;
             }
-
-            $output[] = [
-                "bid_id" => $bid->id,
-                "number" => $bid->flight->flight_number,
-                "code" => $bid->flight->airline->code,
-                "departure_airport" => $bid->flight->dpt_airport_id,
-                "arrival_airport" => $bid->flight->arr_airport_id,
-                "route" => $bid->flight->route ? explode(" ", $bid->flight->route) : [],
-                "flight_level" => $bid->flight->level,
-                "distance" => $bid->flight->distance->local(),
-                "departure_time" => $bid->flight->dpt_time,
-                "arrival_time" => $bid->flight->arr_time,
-                "flight_time" => $ft_converted,
-                "days_of_week" => $bid->flight->days ?? [],
-                "type" => $this->flightType($bid->flight->flight_type),
-                "aircraft" => $aircraft,
-                "notes" => $bid->flight->notes ?? ''
-            ];
+            $output[] = $this->bookingPayload($bid);
         }
 
         return response()->json($output);
+    }
+
+    /**
+     * Serialise one bid into the Stratos booking shape. Shared by /flights/bookings
+     * and /flights/change-aircraft so both return identical payloads. Requires
+     * flight, flight.airline, flight.simbrief(.aircraft) and flight.subfleets.aircraft
+     * to be loaded on $bid.
+     */
+    private function bookingPayload(Bid $bid)
+    {
+        $aircraft = null;
+        if ($bid->flight->simbrief) {
+            $aircraft = $bid->flight->simbrief->aircraft->id;
+        } elseif ($bid->aircraft_id !== null) {
+            $aircraft = $bid->aircraft_id;
+        }
+        // When neither SimBrief nor the bid pins an aircraft, leave it null so the
+        // client shows "no aircraft selected" instead of a misleading first-subfleet
+        // default — and stays consistent with /flights/start, which has no fallback.
+        $ft_converted = floatval(number_format($bid->flight->flight_time / 60, 2));
+
+        return [
+            "bid_id" => $bid->id,
+            "number" => $bid->flight->flight_number,
+            "code" => $bid->flight->airline->code,
+            "departure_airport" => $bid->flight->dpt_airport_id,
+            "arrival_airport" => $bid->flight->arr_airport_id,
+            "route" => $bid->flight->route ? explode(" ", $bid->flight->route) : [],
+            "flight_level" => $bid->flight->level,
+            "distance" => $bid->flight->distance->local(),
+            "departure_time" => $bid->flight->dpt_time,
+            "arrival_time" => $bid->flight->arr_time,
+            "flight_time" => $ft_converted,
+            "days_of_week" => $bid->flight->days ?? [],
+            "type" => $this->flightType($bid->flight->flight_type),
+            "aircraft" => $aircraft,
+            "aircraft_changeable" => !$bid->flight->simbrief,
+            "notes" => $bid->flight->notes ?? ''
+        ];
+    }
+
+    /**
+     * GET /flights/bookings/{bid}/aircraft
+     * Aircraft the pilot may switch to for this bid's flight, narrowed by the
+     * native FlightService::filterSubfleets (same logic phpVMS's own PIREP-create
+     * form uses). A flight with a locked SimBrief airframe is not changeable.
+     */
+    public function eligibleAircraft(Request $request, $bid)
+    {
+        $user = Auth::user();
+        $bidModel = Bid::with(['flight.simbrief.aircraft', 'flight.subfleets.aircraft'])->find($bid);
+
+        if ($bidModel === null) {
+            return response()->json(['error' => 'Bid not found'], 404);
+        }
+        if ((int) $bidModel->user_id !== (int) $user->id) {
+            return response()->json(['error' => 'This bid does not belong to you'], 403);
+        }
+        if ($bidModel->flight->simbrief) {
+            return response()->json(['changeable' => false, 'aircraft' => []]);
+        }
+
+        $flight = $this->flightService->filterSubfleets($user, $bidModel->flight);
+
+        return response()->json([
+            'changeable' => true,
+            'aircraft' => EligibleAircraftList::shape($flight->subfleets),
+        ]);
     }
     public function cancel(Request $request)
     {
@@ -384,6 +419,63 @@ class FlightsController extends Controller
         $flight = Flight::find($bid->flight_id);
         $this->bidService->removeBid($flight, Auth::user());
         return response()->json(['status' => 200]);
+    }
+
+    /**
+     * POST /flights/change-aircraft  { bid_id, aircraft_id }
+     * Assigns a different aircraft to a bid before the flight is started, by
+     * persisting the native Bid::aircraft_id column (/flights/start reads it).
+     * Rejects simbrief-locked flights, started flights, aircraft outside the
+     * flight's eligible set, and other pilots' bids.
+     */
+    public function changeAircraft(Request $request)
+    {
+        $user = Auth::user();
+        $bidId = $request->input('bid_id');
+        $aircraftId = $request->input('aircraft_id');
+
+        if (empty($bidId) || empty($aircraftId)) {
+            return response()->json(['message' => 'bid_id and aircraft_id are required'], 422);
+        }
+
+        $bid = Bid::with(['flight.simbrief.aircraft', 'flight.subfleets.aircraft'])->find($bidId);
+        if ($bid === null) {
+            return response()->json(['error' => 'Bid not found'], 404);
+        }
+        if ((int) $bid->user_id !== (int) $user->id) {
+            return response()->json(['error' => 'This bid does not belong to you'], 403);
+        }
+        if ($bid->flight->simbrief) {
+            return response()->json(['message' => 'Aircraft is fixed for this flight'], 422);
+        }
+
+        $inProgress = Pirep::where('user_id', $user->id)
+            ->where('flight_id', $bid->flight_id)
+            ->where('state', PirepState::IN_PROGRESS)
+            ->exists();
+        if ($inProgress) {
+            return response()->json(['message' => 'Cannot change aircraft after the flight has started'], 409);
+        }
+
+        $flight = $this->flightService->filterSubfleets($user, $bid->flight);
+        $eligibleIds = array_column(EligibleAircraftList::shape($flight->subfleets), 'id');
+        if (!in_array((int) $aircraftId, $eligibleIds, true)) {
+            return response()->json(['message' => "This aircraft isn't available for this flight"], 422);
+        }
+
+        $bid->aircraft_id = (int) $aircraftId;
+        $bid->save();
+
+        $bid->load(
+            'flight',
+            'flight.airline',
+            'flight.simbrief',
+            'flight.simbrief.aircraft',
+            'flight.subfleets',
+            'flight.subfleets.aircraft'
+        );
+
+        return response()->json($this->bookingPayload($bid));
     }
     public function update(Request $request)
     {
