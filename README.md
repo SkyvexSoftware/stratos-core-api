@@ -32,15 +32,19 @@ GET    /data/aircraft             fleet list
 GET    /data/airports             airport directory
 GET    /data/announcements        VA announcements feed
 GET    /flights/bookings          pilot's current bids
+GET    /flights/bookings/{bid}/aircraft   aircraft eligible for a bid's flight
 GET    /flights/search            schedule search
 POST   /flights/start             begin tracking a booked flight
+POST   /flights/change-aircraft   reassign a bid's aircraft before departure
 POST   /flights/update            position / phase update
 POST   /flights/complete          file PIREP
 POST   /flights/cancel            cancel active flight
 POST   /flights/unbook            drop a bid
 ```
 
-All endpoints are pure phpVMS-native: pilot rows in `users`, flight history in `acars` (FLIGHT_PATH rows), PIREPs in `pireps`, custom metadata in `pirep_field_values`. The module owns zero tables of its own.
+Bookings carry an `aircraft_changeable` flag — `false` when the flight has a locked SimBrief airframe, `true` otherwise. When changeable, `GET /flights/bookings/{bid}/aircraft` lists the eligible airframes (narrowed by phpVMS's native `FlightService::filterSubfleets`, the same logic the PIREP-create form uses) and `POST /flights/change-aircraft` persists the pilot's choice to `bids.aircraft_id`, which `/flights/start` then reads.
+
+All endpoints are pure phpVMS-native: pilot rows in `users`, bid aircraft assignments in `bids`, flight history in `acars` (FLIGHT_PATH rows), PIREPs in `pireps`, custom metadata in `pirep_field_values`. The module owns zero tables of its own.
 
 ---
 
