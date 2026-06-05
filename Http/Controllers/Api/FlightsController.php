@@ -504,7 +504,7 @@ class FlightsController extends Controller
         if (($pirep->status == PirepStatus::TAKEOFF || $pirep->status == PirepStatus::INIT_CLIM || $pirep->status == PirepStatus::ENROUTE) && $pirep->block_off_time == null) {
             $pirep->block_off_time = Carbon::now();
         }
-        if (($pirep->status == PirepStatus::LANDED || $pirep->status == PirepStatus::ARRIVED) && $pirep->block_on_time == null) {
+                if ($pirep->status == PirepStatus::ON_BLOCK && $pirep->block_on_time == null) {
             $pirep->block_on_time = Carbon::now();
         }
         $pirep->updated_at = Carbon::now();
@@ -557,10 +557,15 @@ class FlightsController extends Controller
                 return PirepStatus::APPROACH;
             case 'taxi_to_gate':
             case 'taxi_in':
-                return PirepStatus::LANDED;
-            case 'arrived':
+                            return PirepStatus::TAXI;
+            case 'on_block':
+            case 'block_on':
+            case 'at_gate':
             case 'deboarding':
-                return PirepStatus::ARRIVED;
+                            return PirepStatus::ON_BLOCK;
+            case 'arrived':
+            case 'submitted':
+                            return PirepStatus::ARRIVED;
             case 'diverted':
                 return PirepStatus::DIVERTED;
             default:
