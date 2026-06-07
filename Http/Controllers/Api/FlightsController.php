@@ -3,6 +3,7 @@
 namespace Modules\StratosCore\Http\Controllers\Api;
 
 use App\Contracts\Controller;
+use App\Events\PirepUpdated;
 use App\Models\Acars;
 use App\Models\Aircraft;
 use App\Models\Airport;
@@ -525,6 +526,8 @@ class FlightsController extends Controller
             'altitude' => $input['altitude'],
             'gs' => $input['ground_speed'] ?? 0,
         ]);
+
+        event(new PirepUpdated($pirep));
     }
 
     public function phaseToStatus(string $phase)
