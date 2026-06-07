@@ -2,7 +2,7 @@
   "name": "StratosCore",
   "alias": "stratoscore",
   "registry_id": "skyvexsoftware/stratos-core-api",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "Stratos Core API — auth, pilot identity, reference data, flight ops, and active PIREPs. Required by every Stratos integration.",
   "attribution": {
     "text": "Skyvex Software Pty Ltd",

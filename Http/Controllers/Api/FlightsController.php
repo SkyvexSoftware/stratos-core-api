@@ -367,9 +367,11 @@ class FlightsController extends Controller
         }
         logger($request->all());
         $flight = Flight::find($bid->flight_id);
+        $simbrief = $flight->simbrief()->where('user_id', $user->id)->first();
+
         $aircraft = null;
-        if ($bid->flight->simbrief) {
-            $aircraft = $bid->flight->simbrief->aircraft->id;
+        if ($simbrief !== null && $simbrief->aircraft_id !== null) {
+            $aircraft = $simbrief->aircraft_id;
         } elseif ($bid->aircraft_id !== null) {
             $aircraft = $bid->aircraft_id;
         } else {
@@ -378,7 +380,6 @@ class FlightsController extends Controller
 
         // Prefer the SimBrief route string (waypoints) over the flight's route field,
         // because many flights have an empty route column while SimBrief always has one.
-        $simbrief = $flight->simbrief()->where('user_id', $user->id)->first();
         $route = $flight->route;
         if ($simbrief !== null && empty($route)) {
             try {
