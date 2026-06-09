@@ -185,8 +185,8 @@ class FlightsController extends Controller
         // numerics stay numeric-parseable so maintenance modules like
         // DisposableSpecial (which gate on is_numeric() by slug) keep working —
         // send pure numbers without unit suffixes for those.
-        if (isset($input['fields']) && is_array($input['fields'])) {
-            foreach ($input['fields'] as $name => $value) {
+        if (isset($input['additional_fields']) && is_array($input['additional_fields'])) {
+            foreach ($input['additional_fields'] as $name => $value) {
                 if (is_array($value) || $value === null) {
                     continue;
                 }
