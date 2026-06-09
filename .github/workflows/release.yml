@@ -20,7 +20,7 @@ jobs:
         run: |
           mkdir -p build/StratosCore
           rsync -a ./ build/StratosCore/ \
-            --exclude ".git" --exclude ".github" --exclude "tests" \
+            --exclude ".git" --exclude ".github" --exclude ".gitignore" --exclude "tests" \
             --exclude "build" --exclude "*.md" --exclude "phpunit.xml" \
             --exclude "composer.lock"
           cd build
