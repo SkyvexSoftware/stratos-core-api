@@ -5,15 +5,12 @@ namespace Modules\StratosCore\Http\Controllers\Api;
 use App\Contracts\Controller;
 use App\Models\Aircraft;
 use App\Models\Airport;
-use App\Models\Enums\AircraftState;
-use App\Models\Enums\AircraftStatus;
 use App\Models\Enums\FareType;
 use App\Models\News;
 use Illuminate\Http\Request;
 
 /**
  * class DataController
- * @package Modules\StratosCore\Http\Controllers\Api
  */
 class DataController extends Controller
 {
@@ -46,15 +43,16 @@ class DataController extends Controller
             }
 
             $output[] = [
-                "id"                 => $item->id,
-                "code"               => $item->icao,
-                "name"               => $item->name,
-                "registration"       => $item->registration,
-                "maximum_passengers" => $maxPax,
-                "maximum_cargo"      => $maxCargo,
-                "minimum_rank"       => $minRank,
+                'id' => $item->id,
+                'code' => $item->icao,
+                'name' => $item->name,
+                'registration' => $item->registration,
+                'maximum_passengers' => $maxPax,
+                'maximum_cargo' => $maxCargo,
+                'minimum_rank' => $minRank,
             ];
         }
+
         return response()->json($output);
     }
 
@@ -64,15 +62,16 @@ class DataController extends Controller
      */
     public function airports(Request $request)
     {
-        $airports = Airport::get()->map(function($apt) {
+        $airports = Airport::get()->map(function ($apt) {
             return [
-                'id'        => $apt->id,
-                'code'      => $apt->icao,
-                'name'      => $apt->name,
-                'latitude'  => $apt->lat,
-                'longitude' => $apt->lon
+                'id' => $apt->id,
+                'code' => $apt->icao,
+                'name' => $apt->name,
+                'latitude' => $apt->lat,
+                'longitude' => $apt->lon,
             ];
         });
+
         return response()->json($airports);
     }
 
@@ -86,16 +85,16 @@ class DataController extends Controller
         foreach ($news as $item) {
             $body = (string) $item->body;
             $output[] = [
-                'id'           => (string) $item->id,
-                'title'        => $item->subject,
-                'subtitle'     => mb_substr(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8'), 0, 200),
-                'body'         => $body,
-                'link'         => null,
-                'image'        => null,
+                'id' => (string) $item->id,
+                'title' => $item->subject,
+                'subtitle' => mb_substr(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8'), 0, 200),
+                'body' => $body,
+                'link' => null,
+                'image' => null,
                 'publish_date' => $item->created_at->toDateString(),
             ];
         }
+
         return response()->json($output);
     }
 }
-

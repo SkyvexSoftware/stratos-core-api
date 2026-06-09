@@ -2,6 +2,8 @@
 
 namespace Modules\StratosCore\Tests;
 
+use Modules\StratosCore\Providers\AppServiceProvider;
+use Modules\StratosCore\Providers\RouteServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
@@ -15,8 +17,8 @@ abstract class TestCase extends Orchestra
     protected function getPackageProviders($app): array
     {
         return [
-            \Modules\StratosCore\Providers\AppServiceProvider::class,
-            \Modules\StratosCore\Providers\RouteServiceProvider::class,
+            AppServiceProvider::class,
+            RouteServiceProvider::class,
         ];
     }
 

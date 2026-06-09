@@ -1,3 +1,5 @@
 <?php
 
-uses(\Modules\StratosCore\Tests\TestCase::class)->in('Unit', 'Feature');
+use Modules\StratosCore\Tests\TestCase;
+
+uses(TestCase::class)->in('Unit', 'Feature');

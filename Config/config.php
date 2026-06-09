@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Provide any configuration items here
  */
 
 return [
-    'name' => 'StratosCore'
+    'name' => 'StratosCore',
 ];

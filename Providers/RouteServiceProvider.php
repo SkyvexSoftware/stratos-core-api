@@ -2,8 +2,8 @@
 
 namespace Modules\StratosCore\Providers;
 
-use Illuminate\Routing\Router;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -21,7 +21,6 @@ class RouteServiceProvider extends ServiceProvider
     /**
      * Called before routes are registered.
      *
-     * @param  Router $router
      * @return void
      */
     public function before(Router $router)
@@ -32,7 +31,6 @@ class RouteServiceProvider extends ServiceProvider
     /**
      * Define the routes for the application.
      *
-     * @param \Illuminate\Routing\Router $router
      *
      * @return void
      */
@@ -47,15 +45,14 @@ class RouteServiceProvider extends ServiceProvider
     protected function registerApiRoutes(): void
     {
         $config = [
-            'as'         => 'api.stratoscore.',
-            'prefix'     => 'api/stratos',
-            'namespace'  => $this->namespace.'\Api',
+            'as' => 'api.stratoscore.',
+            'prefix' => 'api/stratos',
+            'namespace' => $this->namespace.'\Api',
             'middleware' => ['api'],
         ];
 
-        Route::group($config, function() {
+        Route::group($config, function () {
             $this->loadRoutesFrom(__DIR__.'/../Http/Routes/api.php');
         });
     }
 }
-
