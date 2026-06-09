@@ -215,6 +215,26 @@ class FlightsController extends Controller
             ],
         ];
 
+        // Pass through any custom PIREP fields the client supplies in a `fields`
+        // map (e.g. landing-rate / landing-pitch / landing-roll). Defensive:
+        // only runs when the client actually sends `fields`, so existing
+        // clients are completely unaffected. Values are stringified; scalar
+        // numerics stay numeric-parseable so maintenance modules like
+        // DisposableSpecial (which gate on is_numeric() by slug) keep working —
+        // send pure numbers without unit suffixes for those.
+        if (isset($input['additional_fields']) && is_array($input['additional_fields'])) {
+            foreach ($input['additional_fields'] as $name => $value) {
+                if (is_array($value) || $value === null) {
+                    continue;
+                }
+                $fields[] = [
+                    'name'   => (string) $name,
+                    'value'  => (string) $value,
+                    'source' => PirepFieldSource::ACARS,
+                ];
+            }
+        }
+
         try {
             $pirep = $this->pirepService->file($pirep, $attrs, $fields);
         } catch (\Throwable $e) {
@@ -524,7 +544,13 @@ class FlightsController extends Controller
             'distance' => $pirep->planned_distance->local(2) - ($input['distance_remaining'] ?? 0),
             'heading' => $input['heading'],
             'altitude' => $input['altitude'],
+            // Native acars columns the phpVMS logbook Analytics tab plots but
+            // that were dropped before. Defensive: only stored if the client
+            // sends the optional field, otherwise null (no behaviour change).
+            'altitude_agl' => $input['altitude_agl'] ?? null,
+            'vs' => $input['vertical_speed'] ?? null,
             'gs' => $input['ground_speed'] ?? 0,
+            'ias' => $input['indicated_airspeed'] ?? null,
         ]);
 
         event(new PirepUpdated($pirep));
