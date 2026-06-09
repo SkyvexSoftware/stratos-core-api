@@ -521,6 +521,9 @@ class FlightsController extends Controller
         if ($pirep === null) {
             return response()->json(['error' => 'PIREP not found'], 404);
         }
+        if ($pirep->state !== PirepState::IN_PROGRESS) {
+            return response()->json(['error' => 'PIREP is no longer active', 'state' => $pirep->state, 'pirep_id' => $pirep->id], 409);
+        }
 
         $pirep->status = $this->phaseToStatus($input['phase']);
         if (($pirep->status == PirepStatus::TAKEOFF || $pirep->status == PirepStatus::INIT_CLIM || $pirep->status == PirepStatus::ENROUTE) && $pirep->block_off_time == null) {
