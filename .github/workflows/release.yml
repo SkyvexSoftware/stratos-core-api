@@ -18,11 +18,15 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-dev
       - name: Build module zip
         run: |
-          zip -r module.zip . \
-            -x ".git/*" ".github/*" "tests/*" "*.md" "phpunit.xml" \
-            -x "composer.lock"
+          mkdir -p build/StratosCore
+          rsync -a ./ build/StratosCore/ \
+            --exclude ".git" --exclude ".github" --exclude "tests" \
+            --exclude "build" --exclude "*.md" --exclude "phpunit.xml" \
+            --exclude "composer.lock"
+          cd build
+          zip -r "../StratosCore-${GITHUB_REF_NAME}.zip" StratosCore
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: module.zip
+          files: StratosCore-*.zip
           generate_release_notes: true
