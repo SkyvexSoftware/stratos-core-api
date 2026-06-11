@@ -26,3 +26,16 @@ it('returns 422 changing to an aircraft outside the flight subfleets', function 
 it('returns 409 changing aircraft once a PIREP is in progress for the bid', function () {
     // An IN_PROGRESS pirep on the bid's flight blocks the change → 409.
 })->skip('Needs phpVMS factories in Testbench — deferred to live curl smoke (plan Task B5).');
+
+it('does not lock pilot B when only pilot A has a simbrief OFP for the flight', function () {
+    // Pilot A generates a SimBrief OFP for flight F (simbrief.user_id = A).
+    // Pilot B also books F. GET .../{bidB}/aircraft as B → { changeable:true, aircraft:[...] }
+    // and bookings for B report aircraft_changeable: true. Regression for the unscoped
+    // Flight::simbrief() belongsTo, which previously let A's OFP lock B's bid.
+})->skip('Needs phpVMS factories in Testbench — deferred to live curl smoke (plan Task B8).');
+
+it('locks the aircraft only for the pilot whose simbrief OFP it is', function () {
+    // Pilot A with their own OFP on flight F: bookings report aircraft_changeable: false,
+    // GET .../{bidA}/aircraft → { changeable:false, aircraft:[] }, and
+    // POST /flights/change-aircraft for bidA → 422 "Aircraft is fixed for this flight".
+})->skip('Needs phpVMS factories in Testbench — deferred to live curl smoke (plan Task B8).');
