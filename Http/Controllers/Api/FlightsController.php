@@ -48,14 +48,17 @@ class FlightsController extends Controller
     {
         $user = Auth::user();
         $bids = $this->bidService->findBidsForUser($user);
-        $bids->load(
+        $bids->load([
             'flight',
             'flight.airline',
-            'flight.simbrief',
+            // Scope the OFP to THIS pilot — Flight::simbrief() is an unscoped
+            // belongsTo on flight_id, so without this a flight SimBriefed by any
+            // pilot would lock the aircraft for everyone who books it.
+            'flight.simbrief' => fn ($q) => $q->where('user_id', $user->id),
             'flight.simbrief.aircraft',
             'flight.subfleets',
-            'flight.subfleets.aircraft'
-        );
+            'flight.subfleets.aircraft',
+        ]);
         $output = [];
 
         foreach ($bids as $bid) {
@@ -116,7 +119,11 @@ class FlightsController extends Controller
     public function eligibleAircraft(Request $request, $bid)
     {
         $user = Auth::user();
-        $bidModel = Bid::with(['flight.simbrief.aircraft', 'flight.subfleets.aircraft'])->find($bid);
+        $bidModel = Bid::with([
+            'flight.simbrief' => fn ($q) => $q->where('user_id', $user->id),
+            'flight.simbrief.aircraft',
+            'flight.subfleets.aircraft',
+        ])->find($bid);
 
         if ($bidModel === null) {
             return response()->json(['error' => 'Bid not found'], 404);
@@ -228,8 +235,8 @@ class FlightsController extends Controller
                     continue;
                 }
                 $fields[] = [
-                    'name'   => (string) $name,
-                    'value'  => (string) $value,
+                    'name' => (string) $name,
+                    'value' => (string) $value,
                     'source' => PirepFieldSource::ACARS,
                 ];
             }
@@ -468,7 +475,11 @@ class FlightsController extends Controller
             return response()->json(['message' => 'bid_id and aircraft_id are required'], 422);
         }
 
-        $bid = Bid::with(['flight.simbrief.aircraft', 'flight.subfleets.aircraft'])->find($bidId);
+        $bid = Bid::with([
+            'flight.simbrief' => fn ($q) => $q->where('user_id', $user->id),
+            'flight.simbrief.aircraft',
+            'flight.subfleets.aircraft',
+        ])->find($bidId);
         if ($bid === null) {
             return response()->json(['error' => 'Bid not found'], 404);
         }
@@ -496,14 +507,14 @@ class FlightsController extends Controller
         $bid->aircraft_id = (int) $aircraftId;
         $bid->save();
 
-        $bid->load(
+        $bid->load([
             'flight',
             'flight.airline',
-            'flight.simbrief',
+            'flight.simbrief' => fn ($q) => $q->where('user_id', $user->id),
             'flight.simbrief.aircraft',
             'flight.subfleets',
-            'flight.subfleets.aircraft'
-        );
+            'flight.subfleets.aircraft',
+        ]);
 
         return response()->json($this->bookingPayload($bid));
     }
@@ -529,7 +540,7 @@ class FlightsController extends Controller
         if (($pirep->status == PirepStatus::TAKEOFF || $pirep->status == PirepStatus::INIT_CLIM || $pirep->status == PirepStatus::ENROUTE) && $pirep->block_off_time == null) {
             $pirep->block_off_time = Carbon::now();
         }
-                if ($pirep->status == PirepStatus::ON_BLOCK && $pirep->block_on_time == null) {
+        if ($pirep->status == PirepStatus::ON_BLOCK && $pirep->block_on_time == null) {
             $pirep->block_on_time = Carbon::now();
         }
         $pirep->updated_at = Carbon::now();
@@ -590,15 +601,15 @@ class FlightsController extends Controller
                 return PirepStatus::APPROACH;
             case 'taxi_to_gate':
             case 'taxi_in':
-                            return PirepStatus::TAXI;
+                return PirepStatus::TAXI;
             case 'on_block':
             case 'block_on':
             case 'at_gate':
             case 'deboarding':
-                            return PirepStatus::ON_BLOCK;
+                return PirepStatus::ON_BLOCK;
             case 'arrived':
             case 'submitted':
-                            return PirepStatus::ARRIVED;
+                return PirepStatus::ARRIVED;
             case 'diverted':
                 return PirepStatus::DIVERTED;
             default:
