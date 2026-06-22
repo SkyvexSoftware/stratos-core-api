@@ -46,6 +46,8 @@ Bookings carry an `aircraft_changeable` flag — `false` when the flight has a l
 
 All endpoints are pure phpVMS-native: pilot rows in `users`, bid aircraft assignments in `bids`, flight history in `acars` (FLIGHT_PATH rows), PIREPs in `pireps`, custom metadata in `pirep_field_values`. The module owns zero tables of its own.
 
+Every endpoint responds with `application/json` and permissive CORS headers (`Access-Control-Allow-Origin: *`), and answers `OPTIONS`/`HEAD` preflight requests directly — so a browser-based or external integration can call the API cross-origin. The `Authorization` and `X-Stratos-Version` headers are both allow-listed.
+
 ---
 
 ## Building your own module on top
