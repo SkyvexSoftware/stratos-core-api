@@ -1,6 +1,11 @@
 MIT License
 
+Copyright (c) 2025 Invernyx, Inc.
 Copyright (c) 2026 Skyvex Software Pty Ltd
+
+This software is based in part on the smartCARS 3 phpVMS 7 API
+(https://github.com/invernyx/smartcars-3-phpvms7-api), used under the MIT
+License and Copyright (c) 2025 Invernyx, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

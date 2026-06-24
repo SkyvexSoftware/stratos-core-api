@@ -95,6 +95,10 @@ After that any edits in this repo are live in your phpVMS install — no rebuild
 
 Tag a release with `v*` (e.g. `v0.1.0`). The release workflow builds `module.zip` and attaches it to the GitHub release. Operators install it via the **Admin → Modules → Add New Module** flow above.
 
+## Credits
+
+This module is based in part on the [smartCARS 3 phpVMS 7 API](https://github.com/invernyx/smartcars-3-phpvms7-api) by Invernyx, Inc. (d.b.a. TFDi Design), used under the MIT License.
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE). Includes code Copyright (c) 2025 Invernyx, Inc., used under the MIT License.
